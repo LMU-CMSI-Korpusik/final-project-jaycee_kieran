@@ -54,7 +54,7 @@ def main(args):
     train = pd.read_json("./Twibot-20/train.json")
     print(f"{datetime.datetime.now()}: Loading test data")
     test = pd.read_json("./Twibot-20/test.json")
-    print(f"{datetime.datetime.now()}: Loading validaton data")
+    print(f"{datetime.datetime.now()}: Loading validation data")
     validation = pd.read_json("./Twibot-20/dev.json")
 
     if(args.subset_data):
