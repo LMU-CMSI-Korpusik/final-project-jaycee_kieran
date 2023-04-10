@@ -31,11 +31,16 @@ def main(args):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     print(f"{datetime.datetime.now()}: Initializing GPT-2")
-    tokenizer = GPT2Tokenizer.from_pretrained('gpt2', do_lower_case=True)
-    gpt2 = GPT2DoubleHeadsModel.from_pretrained('gpt2', num_labels=NUM_CLASSES)
-    gpt2.to(device)
 
-    model_parameters = list(gpt2.named_parameters())
+    if args.model == "gpt2":
+        tokenizer = GPT2Tokenizer.from_pretrained('gpt2', do_lower_case=True)
+        model = GPT2DoubleHeadsModel.from_pretrained('gpt2', num_labels=NUM_CLASSES)
+    else:
+        raise Exception("Bert is not supported yet!")
+
+    model.to(device)
+
+    model_parameters = list(model.named_parameters())
     decay_free_parameters = ['bias', 'gamma', 'beta']
     parameters_for_optimizer = [
         {'params': [parameter for name, parameter in model_parameters if not any(no_decay in name for no_decay in decay_free_parameters)], 'weight_decay_rate':0.01},
@@ -73,11 +78,14 @@ def main(args):
     if(args.subset_data):
         train_tweets_labels = train_tweets_labels[:104]
     
-    train_tweets = [tokenizer(tweet, truncation=True, max_length=2048, return_tensors='pt')['input_ids'].squeeze().to(device) for tweet in train_tweets_labels['tweet'].values]
+    if args.model == "gpt2":
+        train_tweets = [tokenizer(tweet, truncation=True, max_length=2048, return_tensors='pt')['input_ids'].squeeze().to(device) for tweet in train_tweets_labels['tweet'].values]
+        train_labels = train_tweets_labels['label'].values
+    else:
+        raise Exception("Bert is not supported right now!")
     
     print(f'{datetime.datetime.now()}: Padding sequences')
     train_tweets = pad_sequence(train_tweets).to(device).transpose(0, 1)
-    train_labels = train_tweets_labels['label'].values
 
     print(f'{datetime.datetime.now()}: Cloning tweet tensor')
     train_masks = train_tweets.detach().clone()
@@ -102,11 +110,14 @@ def main(args):
     if(args.subset_data):
         val_tweets_labels = val_tweets_labels[:10]
 
-    val_tweets = [tokenizer(tweet, truncation=True, max_length=1024, return_tensors='pt')['input_ids'].squeeze().to(device) for tweet in val_tweets_labels['tweet'].values]
+    if args.model == "gpt2":
+        val_tweets = [tokenizer(tweet, truncation=True, max_length=1024, return_tensors='pt')['input_ids'].squeeze().to(device) for tweet in val_tweets_labels['tweet'].values]
+        val_labels = val_tweets_labels['label'].values
+    else:
+        raise Exception("Bert is not supported right now!")
 
     print(f"{datetime.datetime.now()}: Padding sequences")
     val_tweets = pad_sequence(val_tweets).to(device).transpose(0, 1)
-    val_labels = val_tweets_labels['label'].values
 
     print(f'{datetime.datetime.now()}: Cloning tweet tensor')
     val_masks = val_tweets.detach().clone()
@@ -125,11 +136,14 @@ def main(args):
     if(args.subset_data):
         test_tweets_labels = test_tweets_labels[:10]
 
-    test_tweets = [tokenizer(tweet, truncation=True, max_length=1024, return_tensors='pt')['input_ids'].squeeze().to(device) for tweet in test_tweets_labels['tweet'].values]
+    if args.model == "gpt2":
+        test_tweets = [tokenizer(tweet, truncation=True, max_length=1024, return_tensors='pt')['input_ids'].squeeze().to(device) for tweet in test_tweets_labels['tweet'].values]
+        test_labels = test_tweets_labels['label'].values
+    else:
+        raise Exception("Bert is not supported right now!")
 
     print(f"{datetime.datetime.now()}: Padding sequences")
     test_tweets = pad_sequence(test_tweets).to(device).transpose(0, 1)
-    test_labels = test_tweets_labels['label'].values
 
     print(f'{datetime.datetime.now()}: Cloning tweet tensor')
     test_masks = test_tweets.detach().clone()
@@ -143,7 +157,7 @@ def main(args):
 
     # Train the model for the specified number of epochs.
     for epoch in range(EPOCHS):
-        gpt2.train()
+        model.train()
         print(f'Epoch {epoch+1}')
         print('Training model...')
         train_iterator = iter(train_dataloader)
@@ -156,7 +170,7 @@ def main(args):
             tweets = tweets.unsqueeze(1)
             masks = masks.unsqueeze(1)
 
-            loss = gpt2(input_ids=tweets, token_type_ids=None, attention_mask=masks, mc_labels=labels)[0]
+            loss = model(input_ids=tweets, token_type_ids=None, attention_mask=masks, mc_labels=labels)[0]
             
             avg_training_loss += loss.item()
             batches += 1
@@ -169,8 +183,8 @@ def main(args):
         
         print("Validating model...")
         with torch.no_grad():
-            gpt2.eval()
-            logits = gpt2(val_tweets_tensor.unsqueeze(1), token_type_ids=None, attention_mask=val_masks_tensor)
+            model.eval()
+            logits = model(val_tweets_tensor.unsqueeze(1), token_type_ids=None, attention_mask=val_masks_tensor)
 
             logits = logits[0].detach().cpu().numpy()
             label_ids = val_labels_tensor.to('cpu').numpy().flatten()
@@ -179,14 +193,14 @@ def main(args):
             print(f'Validation accuracy: {validation_accuracy}\n')
         
     print("Saving model...")
-    torch.save(gpt2, f'GPT-2/GPT_2_BOT_DETECTION_{time.time()}.pt')
+    torch.save(model, f'{args.model}/{args.model}_BOT_DETECTION_{time.time()}.pt')
 
     # Evaluate the model.
     with torch.no_grad():
-        gpt2.eval()
+        model.eval()
         print('\nTesting model...')
 
-        logits = gpt2(test_tweets_tensor.unsqueeze(1), token_type_ids=None, attention_mask = test_masks_tensor)[0].detach().cpu().numpy()
+        logits = model(test_tweets_tensor.unsqueeze(1), token_type_ids=None, attention_mask = test_masks_tensor)[0].detach().cpu().numpy()
 
         predictions = np.argmax(logits, axis=1)
         
