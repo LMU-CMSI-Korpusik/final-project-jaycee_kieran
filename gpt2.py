@@ -169,6 +169,7 @@ def main(args):
         
         print("Validating model...")
         with torch.no_grad():
+            gpt2.eval()
             logits = gpt2(val_tweets_tensor.unsqueeze(1), token_type_ids=None, attention_mask=val_masks_tensor)
 
             logits = logits[0].detach().cpu().numpy()
