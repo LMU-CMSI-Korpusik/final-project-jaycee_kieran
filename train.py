@@ -204,7 +204,7 @@ def main(args):
 
         predictions = np.argmax(logits, axis=1)
         
-        print(f'Summary statistics for gpt2 bot detection network.')
+        print(f'Summary statistics for {args.model} bot detection network.')
         print(classification_report(predictions, test_labels_tensor.cpu().numpy(), target_names=['human', 'bot']))
 
 if __name__=='__main__':
