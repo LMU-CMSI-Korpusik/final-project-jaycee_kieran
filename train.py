@@ -32,7 +32,7 @@ def main(args):
 
     print(f"{datetime.datetime.now()}: Initializing GPT-2")
 
-    if args.model == "gpt2":
+    if args.model == "gpt-2":
         tokenizer = GPT2Tokenizer.from_pretrained('gpt2', do_lower_case=True)
         model = GPT2DoubleHeadsModel.from_pretrained('gpt2', num_labels=NUM_CLASSES)
     else:
@@ -78,7 +78,7 @@ def main(args):
     if(args.subset_data):
         train_tweets_labels = train_tweets_labels[:104]
     
-    if args.model == "gpt2":
+    if args.model == "gpt-2":
         train_tweets = [tokenizer(tweet, truncation=True, max_length=2048, return_tensors='pt')['input_ids'].squeeze().to(device) for tweet in train_tweets_labels['tweet'].values]
         train_labels = train_tweets_labels['label'].values
     else:
@@ -110,7 +110,7 @@ def main(args):
     if(args.subset_data):
         val_tweets_labels = val_tweets_labels[:10]
 
-    if args.model == "gpt2":
+    if args.model == "gpt-2":
         val_tweets = [tokenizer(tweet, truncation=True, max_length=1024, return_tensors='pt')['input_ids'].squeeze().to(device) for tweet in val_tweets_labels['tweet'].values]
         val_labels = val_tweets_labels['label'].values
     else:
@@ -136,7 +136,7 @@ def main(args):
     if(args.subset_data):
         test_tweets_labels = test_tweets_labels[:10]
 
-    if args.model == "gpt2":
+    if args.model == "gpt-2":
         test_tweets = [tokenizer(tweet, truncation=True, max_length=1024, return_tensors='pt')['input_ids'].squeeze().to(device) for tweet in test_tweets_labels['tweet'].values]
         test_labels = test_tweets_labels['label'].values
     else:
@@ -170,7 +170,7 @@ def main(args):
             tweets = tweets.unsqueeze(1)
             masks = masks.unsqueeze(1)
 
-            loss = model(input_ids=tweets, token_type_ids=None, attention_mask=masks, mc_labels=labels)[0]
+            loss = model(input_ids=tweets, token_type_ids=None, attention_mask=masks, mc_labels=labels).mc_loss
             
             avg_training_loss += loss.item()
             batches += 1
@@ -193,7 +193,7 @@ def main(args):
             print(f'Validation accuracy: {validation_accuracy}\n')
         
     print("Saving model...")
-    torch.save(model, f'{args.model}/{args.model}_BOT_DETECTION_{time.time()}.pt')
+    torch.save(model, f'{args.model.upper()}/{args.model}_BOT_DETECTION_{time.time()}.pt')
 
     # Evaluate the model.
     with torch.no_grad():
@@ -212,7 +212,7 @@ if __name__=='__main__':
 
     parser.add_argument('--learning_rate', type=float, default=2e-5, help='Learning rate for gradient descent.')
     parser.add_argument('--subset_data', type=bool, default=False, help="Whether to use a subset of the total data (smaller by factor of 10) for faster training.")
-    parser.add_argument('--model', default='gpt2', choices=['bert', 'gpt2'])
+    parser.add_argument('--model', default='gpt-2', choices=['bert', 'gpt-2'])
 
     args = parser.parse_args()
     main(args)
