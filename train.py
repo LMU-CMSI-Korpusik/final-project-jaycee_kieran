@@ -1,5 +1,5 @@
 """
-Author: Kieran Ahn
+Authors: Kieran Ahn, Jaycee Nakagawa
 
 Follows the procedure presented in https://github.com/botonobot/Understanding-Transformers-for-Bot-Detection-Twitter/blob/master/bot_detection/bot_detection-BERT_GPT2-transformers.ipynb
 """
@@ -7,7 +7,7 @@ Follows the procedure presented in https://github.com/botonobot/Understanding-Tr
 import datetime
 import argparse
 import numpy as np
-from transformers import GPT2Tokenizer, GPT2DoubleHeadsModel,BertTokenizer, BertForSequenceClassification
+from transformers import GPT2Tokenizer, GPT2DoubleHeadsModel, BertTokenizer, BertForSequenceClassification
 import pandas as pd
 from torch.nn.utils.rnn import pad_sequence
 from torch.optim import AdamW
@@ -33,9 +33,8 @@ def main(args):
     print(f"{datetime.datetime.now()}: Initializing GPT-2")
 
     if args.model == "gpt-2":
-        tokenizer = GPT2Tokenizer.from_pretrained('gpt2', do_lower_case=True)
+        tokenizer = GPT2Tokenizer.from_pretrained('gpt2', do_lower_case=True, pad_token='0', padding_side='right', truncation_side='right')
         model = GPT2DoubleHeadsModel.from_pretrained('gpt2', num_labels=NUM_CLASSES)
-        print(model.config)
     else:
         tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True)
         model = BertForSequenceClassification.from_pretrained("bert-base-uncased", num_labels=NUM_CLASSES)
@@ -80,28 +79,19 @@ def main(args):
     if(args.subset_data):
         train_tweets_labels = train_tweets_labels[:104]
     
+    print(f'Tokenizing data')
     if args.model == "gpt-2":
-        train_tweets = [tokenizer(tweet, truncation=True, max_length=2048, return_tensors='pt')['input_ids'].squeeze().to(device) for tweet in train_tweets_labels['tweet'].values]
-        train_labels = train_tweets_labels['label'].values
+        train_tweets_masks = tokenizer(train_tweets_labels['tweet'].values.tolist(), padding=True, truncation=True, max_length=1024)
+        train_tweets = torch.LongTensor(train_tweets_masks['input_ids']).to(device)
+        train_masks = torch.FloatTensor(train_tweets_masks['attention_mask']).to(device)
+        train_labels = torch.LongTensor(train_tweets_labels['label'].values).to(device)
+
     else:
         train_tweets = [tokenizer(tweet, truncation=True, max_length=2048, return_tensors='pt')['input_ids'].squeeze().to(device) for tweet in train_tweets_labels['tweet'].values]
         train_labels = train_tweets_labels['label'].values
-    
-    print(f'{datetime.datetime.now()}: Padding sequences')
-    train_tweets = pad_sequence(train_tweets).to(device).transpose(0, 1)
-
-    print(f'{datetime.datetime.now()}: Cloning tweet tensor')
-    train_masks = train_tweets.detach().clone()
-    print(f"{datetime.datetime.now()}: Creating training attention mask")
-    train_masks = train_masks.cpu().apply_(lambda word: float(word>0)).to(device).float()
-
-    print(f"{datetime.datetime.now()}: Tensorifying training dataset")
-    train_tweets_tensor = train_tweets.long()
-    train_masks_tensor = train_masks
-    train_labels_tensor = torch.LongTensor(train_labels).to(device)
 
     print(f"{datetime.datetime.now()}: Importing to TensorDataset")
-    train_dataset = TensorDataset(train_tweets_tensor, train_masks_tensor, train_labels_tensor)
+    train_dataset = TensorDataset(train_tweets, train_masks, train_labels)
 
     print(f"{datetime.datetime.now()}: Making training dataloader")
     train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE)
@@ -113,25 +103,15 @@ def main(args):
     if(args.subset_data):
         val_tweets_labels = val_tweets_labels[:10]
 
+    print(f'Tokenizing data')
     if args.model == "gpt-2":
-        val_tweets = [tokenizer(tweet, truncation=True, max_length=1024, return_tensors='pt')['input_ids'].squeeze().to(device) for tweet in val_tweets_labels['tweet'].values]
-        val_labels = val_tweets_labels['label'].values
+        val_tweets_masks = tokenizer(val_tweets_labels['tweet'].values.tolist(), padding=True, truncation=True, max_length=1024)
+        val_tweets = torch.LongTensor(val_tweets_masks['input_ids']).to(device)
+        val_masks = torch.FloatTensor(val_tweets_masks['attention_mask']).to(device)
+        val_labels = torch.LongTensor(val_tweets_labels['label'].values).to(device)
     else:
         val_tweets = [tokenizer(tweet, truncation=True, max_length=1024, return_tensors='pt')['input_ids'].squeeze().to(device) for tweet in val_tweets_labels['tweet'].values]
         val_labels = val_tweets_labels['label'].values
-
-    print(f"{datetime.datetime.now()}: Padding sequences")
-    val_tweets = pad_sequence(val_tweets).to(device).transpose(0, 1)
-
-    print(f'{datetime.datetime.now()}: Cloning tweet tensor')
-    val_masks = val_tweets.detach().clone()
-    print(f"{datetime.datetime.now()}: Creating validation attention mask")
-    val_masks = val_masks.cpu().apply_(lambda word: float(word>0)).to(device).float()
-
-    print(f"{datetime.datetime.now()}: Tensorifying validation dataset")
-    val_tweets_tensor = val_tweets.long()
-    val_masks_tensor = val_masks
-    val_labels_tensor = torch.LongTensor(val_labels).to(device)
 
     print(f"\n{datetime.datetime.now()}: Making test dataset")
     test_tweets_labels = test[['tweet','label']].explode('tweet')
@@ -141,24 +121,13 @@ def main(args):
         test_tweets_labels = test_tweets_labels[:10]
 
     if args.model == "gpt-2":
-        test_tweets = [tokenizer(tweet, truncation=True, max_length=1024, return_tensors='pt')['input_ids'].squeeze().to(device) for tweet in test_tweets_labels['tweet'].values]
-        test_labels = test_tweets_labels['label'].values
+        test_tweets_masks = tokenizer(test_tweets_labels['tweet'].values.tolist(), padding=True, truncation=True, max_length=1024)
+        test_tweets = torch.LongTensor(test_tweets_masks['input_ids']).to(device)
+        test_masks = torch.FloatTensor(test_tweets_masks['attention_mask']).to(device)
+        test_labels = torch.LongTensor(test_tweets_labels['label'].values).to(device)
     else:
         test_tweets = [tokenizer(tweet, truncation=True, max_length=1024, return_tensors='pt')['input_ids'].squeeze().to(device) for tweet in test_tweets_labels['tweet'].values]
         test_labels = test_tweets_labels['label'].values
-
-    print(f"{datetime.datetime.now()}: Padding sequences")
-    test_tweets = pad_sequence(test_tweets).to(device).transpose(0, 1)
-
-    print(f'{datetime.datetime.now()}: Cloning tweet tensor')
-    test_masks = test_tweets.detach().clone()
-    print(f"{datetime.datetime.now()}: Creating test attention mask")
-    test_masks = test_masks.cpu().apply_(lambda word: float(word>0)).to(device).float()
-
-    print(f"{datetime.datetime.now()}: Tensorifying test dataset")
-    test_tweets_tensor = test_tweets.long()
-    test_masks_tensor = test_masks
-    test_labels_tensor = torch.LongTensor(test_labels).to(device)
 
     # Train the model for the specified number of epochs.
     for epoch in range(EPOCHS):
@@ -170,16 +139,14 @@ def main(args):
 
         batches = 0
         for tweets, masks, labels in tqdm(train_iterator):
+
             optimizer.zero_grad()
-            
-            tweets = tweets.unsqueeze(1)
-            masks = masks.unsqueeze(1)
 
             if args.model == "gpt-2":
                 loss = model(input_ids=tweets, token_type_ids=None, attention_mask=masks, mc_labels=labels).mc_loss
             else:
                 loss = model(input_ids=tweets, token_type_ids=None, attention_mask=masks, labels=labels).mc_loss
-                
+
             avg_training_loss += loss.item()
             batches += 1
 
@@ -192,9 +159,9 @@ def main(args):
         print("Validating model...")
         with torch.no_grad():
             model.eval()
-            logits = model(val_tweets_tensor.unsqueeze(1), token_type_ids=None, attention_mask=val_masks_tensor).mc_logits.detach().cpu().numpy()
+            logits = model(val_tweets, token_type_ids=None, attention_mask=val_masks).mc_logits.detach().cpu().numpy()
 
-            label_ids = val_labels_tensor.to('cpu').numpy().flatten()
+            label_ids = val_labels.to('cpu').numpy().flatten()
 
             validation_accuracy = np.sum(np.argmax(logits, axis=1).flatten() == label_ids) / len(label_ids)
             print(f'Validation accuracy: {validation_accuracy}\n')
@@ -207,12 +174,12 @@ def main(args):
         model.eval()
         print('\nTesting model...')
 
-        logits = model(test_tweets_tensor.unsqueeze(1), token_type_ids=None, attention_mask = test_masks_tensor).mc_logits.detach().cpu().numpy()
-
+        logits = model(test_tweets, token_type_ids=None, attention_mask = test_masks).mc_logits.detach().cpu().numpy()
+        
         predictions = np.argmax(logits, axis=1)
         
         print(f'Summary statistics for {args.model} bot detection network.')
-        print(classification_report(predictions, test_labels_tensor.cpu().numpy().flatten(), target_names=['human', 'bot']))
+        print(classification_report(predictions, test_labels.cpu().numpy().flatten(), target_names=['bot', 'human']))
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser()
@@ -222,4 +189,5 @@ if __name__=='__main__':
     parser.add_argument('--model', default='gpt-2', choices=['bert', 'gpt-2'])
 
     args = parser.parse_args()
+
     main(args)
