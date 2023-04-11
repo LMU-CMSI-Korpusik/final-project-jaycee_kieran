@@ -35,6 +35,7 @@ def main(args):
     if args.model == "gpt-2":
         tokenizer = GPT2Tokenizer.from_pretrained('gpt2', do_lower_case=True)
         model = GPT2DoubleHeadsModel.from_pretrained('gpt2', num_labels=NUM_CLASSES)
+        print(model.config)
     else:
         raise Exception("Bert is not supported yet!")
 
@@ -166,7 +167,7 @@ def main(args):
         batches = 0
         for tweets, masks, labels in tqdm(train_iterator):
             optimizer.zero_grad()
-
+            
             tweets = tweets.unsqueeze(1)
             masks = masks.unsqueeze(1)
 
@@ -184,9 +185,8 @@ def main(args):
         print("Validating model...")
         with torch.no_grad():
             model.eval()
-            logits = model(val_tweets_tensor.unsqueeze(1), token_type_ids=None, attention_mask=val_masks_tensor)
+            logits = model(val_tweets_tensor.unsqueeze(1), token_type_ids=None, attention_mask=val_masks_tensor).mc_logits.detach().cpu().numpy()
 
-            logits = logits[0].detach().cpu().numpy()
             label_ids = val_labels_tensor.to('cpu').numpy().flatten()
 
             validation_accuracy = np.sum(np.argmax(logits, axis=1).flatten() == label_ids) / len(label_ids)
@@ -200,12 +200,12 @@ def main(args):
         model.eval()
         print('\nTesting model...')
 
-        logits = model(test_tweets_tensor.unsqueeze(1), token_type_ids=None, attention_mask = test_masks_tensor)[0].detach().cpu().numpy()
+        logits = model(test_tweets_tensor.unsqueeze(1), token_type_ids=None, attention_mask = test_masks_tensor).mc_logits.detach().cpu().numpy()
 
         predictions = np.argmax(logits, axis=1)
         
         print(f'Summary statistics for {args.model} bot detection network.')
-        print(classification_report(predictions, test_labels_tensor.cpu().numpy(), target_names=['human', 'bot']))
+        print(classification_report(predictions, test_labels_tensor.cpu().numpy().flatten(), target_names=['human', 'bot']))
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser()
