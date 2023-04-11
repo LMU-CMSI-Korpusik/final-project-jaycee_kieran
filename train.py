@@ -179,6 +179,7 @@ def main(args):
                 loss = model(input_ids=tweets, token_type_ids=None, attention_mask=masks, mc_labels=labels).mc_loss
             else:
                 loss = model(input_ids=tweets, token_type_ids=None, attention_mask=masks, labels=labels).mc_loss
+                
             avg_training_loss += loss.item()
             batches += 1
 
@@ -217,8 +218,8 @@ if __name__=='__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--learning_rate', type=float, default=2e-5, help='Learning rate for gradient descent.')
-    parser.add_argument('--subset_data', type=bool, default=True, help="Whether to use a subset of the total data (smaller by factor of 10) for faster training.")
-    parser.add_argument('--model', default='bert', choices=['bert', 'gpt-2'])
+    parser.add_argument('--subset_data', type=bool, default=False, help="Whether to use a subset of the total data (smaller by factor of 10) for faster training.")
+    parser.add_argument('--model', default='gpt-2', choices=['bert', 'gpt-2'])
 
     args = parser.parse_args()
     main(args)
