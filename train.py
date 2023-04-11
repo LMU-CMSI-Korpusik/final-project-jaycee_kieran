@@ -7,7 +7,7 @@ Follows the procedure presented in https://github.com/botonobot/Understanding-Tr
 import datetime
 import argparse
 import numpy as np
-from transformers import GPT2Tokenizer, GPT2DoubleHeadsModel,BertTokenizer, BertForSequenceClassification
+from transformers import GPT2Tokenizer, GPT2DoubleHeadsModel, GPT2Config, BertTokenizer, BertForSequenceClassification
 import pandas as pd
 from torch.nn.utils.rnn import pad_sequence
 from torch.optim import AdamW
@@ -81,7 +81,7 @@ def main(args):
     
     print(f'Tokenizing data')
     if args.model == "gpt-2":
-        train_tweets_masks = tokenizer(list(train_tweets_labels['tweet'].values), padding=True, truncation=True, max_length=1024)
+        train_tweets_masks = tokenizer(train_tweets_labels['tweet'].values.tolist(), padding=True, truncation=True, max_length=1024)
         train_tweets = torch.LongTensor(train_tweets_masks['input_ids']).to(device)
         train_masks = torch.FloatTensor(train_tweets_masks['attention_mask']).to(device)
         train_labels = torch.LongTensor(train_tweets_labels['label'].values).to(device)
@@ -105,7 +105,7 @@ def main(args):
 
     print(f'Tokenizing data')
     if args.model == "gpt-2":
-        val_tweets_masks = tokenizer(list(val_tweets_labels['tweet'].values), padding=True, truncation=True, max_length=1024)
+        val_tweets_masks = tokenizer(val_tweets_labels['tweet'].values.tolist(), padding=True, truncation=True, max_length=1024)
         val_tweets = torch.LongTensor(val_tweets_masks['input_ids']).to(device)
         val_masks = torch.FloatTensor(val_tweets_masks['attention_mask']).to(device)
         val_labels = torch.LongTensor(val_tweets_labels['label'].values).to(device)
@@ -121,7 +121,7 @@ def main(args):
         test_tweets_labels = test_tweets_labels[:10]
 
     if args.model == "gpt-2":
-        test_tweets_masks = tokenizer(list(test_tweets_labels['tweet'].values), padding=True, truncation=True, max_length=1024)
+        test_tweets_masks = tokenizer(test_tweets_labels['tweet'].values.tolist(), padding=True, truncation=True, max_length=1024)
         test_tweets = torch.LongTensor(test_tweets_masks['input_ids']).to(device)
         test_masks = torch.FloatTensor(test_tweets_masks['attention_mask']).to(device)
         test_labels = torch.LongTensor(test_tweets_labels['label'].values).to(device)
@@ -142,11 +142,10 @@ def main(args):
 
             optimizer.zero_grad()
 
-            for i in range(BATCH_SIZE):
-                if args.model == "gpt-2":
-                    loss = model(input_ids=tweets, token_type_ids=None, attention_mask=masks, mc_labels=labels).mc_loss
-                else:
-                    loss = model(input_ids=tweets, token_type_ids=None, attention_mask=masks, labels=labels).mc_loss
+            if args.model == "gpt-2":
+                loss = model(input_ids=tweets, token_type_ids=None, attention_mask=masks, mc_labels=labels).mc_loss
+            else:
+                loss = model(input_ids=tweets, token_type_ids=None, attention_mask=masks, labels=labels).mc_loss
 
             avg_training_loss += loss.item()
             batches += 1
@@ -162,8 +161,6 @@ def main(args):
             model.eval()
             logits = model(val_tweets, token_type_ids=None, attention_mask=val_masks).mc_logits.detach().cpu().numpy()
 
-            print(logits)
-
             label_ids = val_labels.to('cpu').numpy().flatten()
 
             validation_accuracy = np.sum(np.argmax(logits, axis=1).flatten() == label_ids) / len(label_ids)
@@ -178,11 +175,11 @@ def main(args):
         print('\nTesting model...')
 
         logits = model(test_tweets, token_type_ids=None, attention_mask = test_masks).mc_logits.detach().cpu().numpy()
-
+        
         predictions = np.argmax(logits, axis=1)
         
         print(f'Summary statistics for {args.model} bot detection network.')
-        print(classification_report(predictions, test_labels.cpu().numpy().flatten(), target_names=['human', 'bot']))
+        print(classification_report(predictions, test_labels.cpu().numpy().flatten(), target_names=['bot', 'human']))
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser()
@@ -192,4 +189,5 @@ if __name__=='__main__':
     parser.add_argument('--model', default='gpt-2', choices=['bert', 'gpt-2'])
 
     args = parser.parse_args()
+
     main(args)
