@@ -7,7 +7,7 @@ Follows the procedure presented in https://github.com/botonobot/Understanding-Tr
 import datetime
 import argparse
 import numpy as np
-from transformers import GPT2Tokenizer, GPT2DoubleHeadsModel
+from transformers import GPT2Tokenizer, GPT2DoubleHeadsModel,BertTokenizer, BertForSequenceClassification
 import pandas as pd
 from torch.nn.utils.rnn import pad_sequence
 from torch.optim import AdamW
@@ -37,7 +37,8 @@ def main(args):
         model = GPT2DoubleHeadsModel.from_pretrained('gpt2', num_labels=NUM_CLASSES)
         print(model.config)
     else:
-        raise Exception("Bert is not supported yet!")
+        tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True)
+        model = BertForSequenceClassification.from_pretrained("bert-base-uncased", num_labels=NUM_CLASSES)
 
     model.to(device)
 
@@ -83,7 +84,8 @@ def main(args):
         train_tweets = [tokenizer(tweet, truncation=True, max_length=2048, return_tensors='pt')['input_ids'].squeeze().to(device) for tweet in train_tweets_labels['tweet'].values]
         train_labels = train_tweets_labels['label'].values
     else:
-        raise Exception("Bert is not supported right now!")
+        train_tweets = [tokenizer(tweet, truncation=True, max_length=2048, return_tensors='pt')['input_ids'].squeeze().to(device) for tweet in train_tweets_labels['tweet'].values]
+        train_labels = train_tweets_labels['label'].values
     
     print(f'{datetime.datetime.now()}: Padding sequences')
     train_tweets = pad_sequence(train_tweets).to(device).transpose(0, 1)
@@ -115,7 +117,8 @@ def main(args):
         val_tweets = [tokenizer(tweet, truncation=True, max_length=1024, return_tensors='pt')['input_ids'].squeeze().to(device) for tweet in val_tweets_labels['tweet'].values]
         val_labels = val_tweets_labels['label'].values
     else:
-        raise Exception("Bert is not supported right now!")
+        val_tweets = [tokenizer(tweet, truncation=True, max_length=1024, return_tensors='pt')['input_ids'].squeeze().to(device) for tweet in val_tweets_labels['tweet'].values]
+        val_labels = val_tweets_labels['label'].values
 
     print(f"{datetime.datetime.now()}: Padding sequences")
     val_tweets = pad_sequence(val_tweets).to(device).transpose(0, 1)
@@ -141,7 +144,8 @@ def main(args):
         test_tweets = [tokenizer(tweet, truncation=True, max_length=1024, return_tensors='pt')['input_ids'].squeeze().to(device) for tweet in test_tweets_labels['tweet'].values]
         test_labels = test_tweets_labels['label'].values
     else:
-        raise Exception("Bert is not supported right now!")
+        test_tweets = [tokenizer(tweet, truncation=True, max_length=1024, return_tensors='pt')['input_ids'].squeeze().to(device) for tweet in test_tweets_labels['tweet'].values]
+        test_labels = test_tweets_labels['label'].values
 
     print(f"{datetime.datetime.now()}: Padding sequences")
     test_tweets = pad_sequence(test_tweets).to(device).transpose(0, 1)
@@ -171,8 +175,11 @@ def main(args):
             tweets = tweets.unsqueeze(1)
             masks = masks.unsqueeze(1)
 
-            loss = model(input_ids=tweets, token_type_ids=None, attention_mask=masks, mc_labels=labels).mc_loss
-            
+            if args.model == "gpt-2":
+                loss = model(input_ids=tweets, token_type_ids=None, attention_mask=masks, mc_labels=labels).mc_loss
+            else:
+                loss = model(input_ids=tweets, token_type_ids=None, attention_mask=masks, labels=labels).mc_loss
+                
             avg_training_loss += loss.item()
             batches += 1
 
