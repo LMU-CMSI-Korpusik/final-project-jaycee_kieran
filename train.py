@@ -1,5 +1,5 @@
 """
-Author: Kieran Ahn
+Authors: Kieran Ahn, Jaycee Nakagawa
 
 Follows the procedure presented in https://github.com/botonobot/Understanding-Transformers-for-Bot-Detection-Twitter/blob/master/bot_detection/bot_detection-BERT_GPT2-transformers.ipynb
 """
