@@ -7,7 +7,7 @@ Follows the procedure presented in https://github.com/botonobot/Understanding-Tr
 import datetime
 import argparse
 import numpy as np
-from transformers import GPT2Tokenizer, GPT2DoubleHeadsModel, GPT2Config, BertTokenizer, BertForSequenceClassification
+from transformers import GPT2Tokenizer, GPT2DoubleHeadsModel, BertTokenizer, BertForSequenceClassification
 import pandas as pd
 from torch.nn.utils.rnn import pad_sequence
 from torch.optim import AdamW
