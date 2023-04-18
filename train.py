@@ -190,9 +190,9 @@ def main(args):
         print('\nTesting model...')
 
         if args.model == "gpt-2":
-            logits = model(input_ids=tweets.to(device), token_type_ids=None, attention_mask=masks.to(device)).mc_logits
+            logits = model(input_ids=test_tweets.to(device), token_type_ids=None, attention_mask=test_masks.to(device)).mc_logits
         else:
-            logits = model(input_ids=tweets.to(device), token_type_ids=None, attention_mask=masks.to(device)).logits
+            logits = model(input_ids=test_tweets.to(device), token_type_ids=None, attention_mask=test_masks.to(device)).logits
 
         logits = logits.detach().cpu().numpy()
         
