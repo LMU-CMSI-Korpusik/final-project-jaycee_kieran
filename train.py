@@ -82,12 +82,12 @@ def main(args):
     print(f'Tokenizing data')
     if args.model == "gpt-2":
         train_tweets_masks = tokenizer(train_tweets_labels['tweet'].values.tolist(), padding=True, truncation=True, max_length=1024)
-        train_tweets = torch.LongTensor(train_tweets_masks['input_ids']).to(device)
-        train_masks = torch.FloatTensor(train_tweets_masks['attention_mask']).to(device)
-        train_labels = torch.LongTensor(train_tweets_labels['label'].values).to(device)
+        train_tweets = torch.LongTensor(train_tweets_masks['input_ids'])
+        train_masks = torch.FloatTensor(train_tweets_masks['attention_mask'])
+        train_labels = torch.LongTensor(train_tweets_labels['label'].values)
 
     else:
-        train_tweets = [tokenizer(tweet, truncation=True, max_length=2048, return_tensors='pt')['input_ids'].squeeze().to(device) for tweet in train_tweets_labels['tweet'].values]
+        train_tweets = [tokenizer(tweet, truncation=True, max_length=2048, return_tensors='pt')['input_ids'].squeeze() for tweet in train_tweets_labels['tweet'].values]
         train_labels = train_tweets_labels['label'].values
 
     print(f"{datetime.datetime.now()}: Importing to TensorDataset")
@@ -106,12 +106,18 @@ def main(args):
     print(f'Tokenizing data')
     if args.model == "gpt-2":
         val_tweets_masks = tokenizer(val_tweets_labels['tweet'].values.tolist(), padding=True, truncation=True, max_length=1024)
-        val_tweets = torch.LongTensor(val_tweets_masks['input_ids']).to(device)
-        val_masks = torch.FloatTensor(val_tweets_masks['attention_mask']).to(device)
-        val_labels = torch.LongTensor(val_tweets_labels['label'].values).to(device)
+        val_tweets = torch.LongTensor(val_tweets_masks['input_ids'])
+        val_masks = torch.FloatTensor(val_tweets_masks['attention_mask'])
+        val_labels = torch.LongTensor(val_tweets_labels['label'].values)
     else:
-        val_tweets = [tokenizer(tweet, truncation=True, max_length=1024, return_tensors='pt')['input_ids'].squeeze().to(device) for tweet in val_tweets_labels['tweet'].values]
+        val_tweets = [tokenizer(tweet, truncation=True, max_length=1024, return_tensors='pt')['input_ids'].squeeze() for tweet in val_tweets_labels['tweet'].values]
         val_labels = val_tweets_labels['label'].values
+
+    print(f"{datetime.datetime.now()}: Importing to TensorDataset")
+    val_dataset = TensorDataset(val_tweets, val_masks, val_labels)
+
+    print(f"{datetime.datetime.now()}: Making validation dataloader")
+    val_dataloader = DataLoader(val_dataset, batch_size=BATCH_SIZE)
 
     print(f"\n{datetime.datetime.now()}: Making test dataset")
     test_tweets_labels = test[['tweet','label']].explode('tweet')
@@ -122,11 +128,11 @@ def main(args):
 
     if args.model == "gpt-2":
         test_tweets_masks = tokenizer(test_tweets_labels['tweet'].values.tolist(), padding=True, truncation=True, max_length=1024)
-        test_tweets = torch.LongTensor(test_tweets_masks['input_ids']).to(device)
-        test_masks = torch.FloatTensor(test_tweets_masks['attention_mask']).to(device)
-        test_labels = torch.LongTensor(test_tweets_labels['label'].values).to(device)
+        test_tweets = torch.LongTensor(test_tweets_masks['input_ids'])
+        test_masks = torch.FloatTensor(test_tweets_masks['attention_mask'])
+        test_labels = torch.LongTensor(test_tweets_labels['label'].values)
     else:
-        test_tweets = [tokenizer(tweet, truncation=True, max_length=1024, return_tensors='pt')['input_ids'].squeeze().to(device) for tweet in test_tweets_labels['tweet'].values]
+        test_tweets = [tokenizer(tweet, truncation=True, max_length=1024, return_tensors='pt')['input_ids'].squeeze() for tweet in test_tweets_labels['tweet'].values]
         test_labels = test_tweets_labels['label'].values
 
     # Train the model for the specified number of epochs.
@@ -143,9 +149,9 @@ def main(args):
             optimizer.zero_grad()
 
             if args.model == "gpt-2":
-                loss = model(input_ids=tweets, token_type_ids=None, attention_mask=masks, mc_labels=labels).mc_loss
+                loss = model(input_ids=tweets.to(device), token_type_ids=None, attention_mask=masks.to(device), mc_labels=labels.to(device)).mc_loss
             else:
-                loss = model(input_ids=tweets, token_type_ids=None, attention_mask=masks, labels=labels).mc_loss
+                loss = model(input_ids=tweets.to(device), token_type_ids=None, attention_mask=masks.to(device), labels=labels.to(device)).mc_loss
 
             avg_training_loss += loss.item()
             batches += 1
@@ -159,11 +165,19 @@ def main(args):
         print("Validating model...")
         with torch.no_grad():
             model.eval()
-            logits = model(val_tweets, token_type_ids=None, attention_mask=val_masks).mc_logits.detach().cpu().numpy()
 
-            label_ids = val_labels.to('cpu').numpy().flatten()
+            validation_accuracy = 0
 
-            validation_accuracy = np.sum(np.argmax(logits, axis=1).flatten() == label_ids) / len(label_ids)
+            for tweets, masks, labels in tqdm(iter(val_dataloader)):
+                if args.model == "gpt-2":
+                    logits = model(input_ids=tweets.to(device), token_type_ids=None, attention_mask=masks.to(device), mc_labels=labels.to(device)).mc_logits
+                else:
+                    logits = model(input_ids=tweets.to(device), token_type_ids=None, attention_mask=masks.to(device), labels=labels.to(device)).logits
+
+                logits = logits.detach().cpu().numpy()
+                validation_accuracy += np.sum(np.argmax(logits, axis=1).flatten() == labels.numpy().flatten())
+
+            validation_accuracy = validation_accuracy / len(val_labels)
             print(f'Validation accuracy: {validation_accuracy}\n')
         
     print("Saving model...")
@@ -171,15 +185,21 @@ def main(args):
 
     # Evaluate the model.
     with torch.no_grad():
+        torch.cuda.empty_cache()
         model.eval()
         print('\nTesting model...')
 
-        logits = model(test_tweets, token_type_ids=None, attention_mask = test_masks).mc_logits.detach().cpu().numpy()
+        if args.model == "gpt-2":
+            logits = model(input_ids=tweets.to(device), token_type_ids=None, attention_mask=masks.to(device)).mc_logits
+        else:
+            logits = model(input_ids=tweets.to(device), token_type_ids=None, attention_mask=masks.to(device)).logits
+
+        logits = logits.detach().cpu().numpy()
         
         predictions = np.argmax(logits, axis=1)
         
         print(f'Summary statistics for {args.model} bot detection network.')
-        print(classification_report(predictions, test_labels.cpu().numpy().flatten(), target_names=['human', 'bot']))
+        print(classification_report(predictions, test_labels.numpy().flatten(), target_names=['human', 'bot']))
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser()
