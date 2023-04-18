@@ -198,8 +198,13 @@ def main(args):
         
         predictions = np.argmax(logits, axis=1)
         
+        report = classification_report(predictions, test_labels.numpy().flatten(), target_names=['human', 'bot'])
+
         print(f'Summary statistics for {args.model} bot detection network.')
-        print(classification_report(predictions, test_labels.numpy().flatten(), target_names=['human', 'bot']))
+        print(report)
+
+        with open(f'{args.model}_report', 'wt') as model_report:
+            model_report.write(report)
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser()
