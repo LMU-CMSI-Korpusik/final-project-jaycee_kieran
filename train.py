@@ -167,7 +167,7 @@ def main(args):
             print(f'Validation accuracy: {validation_accuracy}\n')
         
     print("Saving model...")
-    torch.save(model, f'{args.model.upper()}/{args.model}_BOT_DETECTION_{time.time()}.pt')
+    torch.save(model, f'{args.model.upper()}/{args.model}_BOT_DETECTION.pt')
 
     # Evaluate the model.
     with torch.no_grad():
