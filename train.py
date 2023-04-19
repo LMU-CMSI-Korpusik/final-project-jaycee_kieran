@@ -29,7 +29,6 @@ torch.cuda.manual_seed_all(SEED)
 
 def main(args):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    print(device)
 
     print(f"{datetime.datetime.now()}: Initializing GPT-2")
 
@@ -60,17 +59,17 @@ def main(args):
     validation = pd.read_json("./Twibot-20/dev.json")
 
     if(args.subset_data):
-        print("\nReducing data by factor of... a lot.")
+        print("\nReducing data by factor of 10")
         print(f'Train before: {train.shape[0]}')
-        train = train[:1]
+        train = train[:int(len(train)/10)]
         print(f'Train after: {train.shape[0]}')
         
         print(f'Test before: {test.shape[0]}')
-        test = test[:1]
+        test = test[:int(len(test)/10)]
         print(f'Test after: {test.shape[0]}')
 
         print(f'Validation before: {validation.shape[0]}')
-        validation = validation[:1]
+        validation = validation[:int(len(validation)/10)]
         print(f'Validation after: {validation.shape[0]}')
 
     print(f'\n{datetime.datetime.now()}: Making training dataset')
@@ -127,6 +126,7 @@ def main(args):
     if(args.subset_data):
         test_tweets_labels = test_tweets_labels[:10]
 
+    print(f'Tokenizing data')
     if args.model == "gpt-2":
         test_tweets_masks = tokenizer(test_tweets_labels['tweet'].values.tolist(), padding=True, truncation=True, max_length=1024)
         test_tweets = torch.LongTensor(test_tweets_masks['input_ids'])
@@ -135,6 +135,12 @@ def main(args):
     else:
         test_tweets = [tokenizer(tweet, truncation=True, max_length=1024, return_tensors='pt')['input_ids'].squeeze() for tweet in test_tweets_labels['tweet'].values]
         test_labels = test_tweets_labels['label'].values
+
+    print(f"{datetime.datetime.now()}: Importing to TensorDataset")
+    test_dataset = TensorDataset(test_tweets, test_masks)
+
+    print(f"{datetime.datetime.now()}: Making test dataloader")
+    test_dataloader = DataLoader(test_dataset, batch_size=BATCH_SIZE)
 
     # Train the model for the specified number of epochs.
     for epoch in range(EPOCHS):
@@ -190,21 +196,26 @@ def main(args):
         model.eval()
         print('\nTesting model...')
 
-        if args.model == "gpt-2":
-            logits = model(input_ids=test_tweets.to(device), token_type_ids=None, attention_mask=test_masks.to(device)).mc_logits
-        else:
-            logits = model(input_ids=test_tweets.to(device), token_type_ids=None, attention_mask=test_masks.to(device)).logits
+        total_logits = torch.FloatTensor()
 
-        logits = logits.detach().cpu().numpy()
+        for tweets, masks in tqdm(iter(test_dataloader)):
+            if args.model == "gpt-2":
+                logits = model(input_ids=tweets.to(device), token_type_ids=None, attention_mask=masks.to(device)).mc_logits
+            else:
+                logits = model(input_ids=tweets.to(device), token_type_ids=None, attention_mask=masks.to(device)).logits
+            
+            total_logits = torch.cat((total_logits, logits.cpu()), 0)
+
+        total_logits = total_logits.numpy()
         
-        predictions = np.argmax(logits, axis=1)
+        predictions = np.argmax(total_logits, axis=1)
         
         report = classification_report(predictions, test_labels.numpy().flatten(), target_names=['human', 'bot'])
 
         print(f'Summary statistics for {args.model} bot detection network.')
         print(report)
 
-        with open(f'{args.model}_report', 'wt') as model_report:
+        with open(f'{args.model}_report.txt', 'wt') as model_report:
             model_report.write(report)
 
 if __name__=='__main__':
