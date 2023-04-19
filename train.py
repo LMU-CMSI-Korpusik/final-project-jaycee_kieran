@@ -22,7 +22,7 @@ GPT_HIDDEN_DIM = 768
 NUM_CLASSES = 2
 EPOCHS = 2
 SEED = 2345
-random_number_generator = np.random.default_rng(seed=SEED)
+np.random.seed(SEED)
 torch.manual_seed(SEED)
 torch.cuda.manual_seed_all(SEED)
 
@@ -60,15 +60,15 @@ def main(args):
     if(args.subset_data):
         print("\nReducing data by factor of 10")
         print(f'Train before: {train.shape[0]}')
-        train = train.sample(frac=0.1, random_state=random_number_generator)
+        train = train.sample(frac=0.1, random_state=SEED)
         print(f'Train after: {train.shape[0]}')
         
         print(f'Test before: {test.shape[0]}')
-        test = test.sample(frac=0.1, random_state=random_number_generator)
+        test = test.sample(frac=0.1, random_state=SEED)
         print(f'Test after: {test.shape[0]}')
 
         print(f'Validation before: {validation.shape[0]}')
-        validation = validation.sample(frac=0.1, random_state=random_number_generator)
+        validation = validation.sample(frac=0.1, random_state=SEED)
         print(f'Validation after: {validation.shape[0]}')
 
     if(args.debug_run):
