@@ -29,6 +29,7 @@ torch.cuda.manual_seed_all(SEED)
 
 def main(args):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    print(device)
 
     print(f"{datetime.datetime.now()}: Initializing GPT-2")
 
