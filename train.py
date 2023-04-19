@@ -71,11 +71,25 @@ def main(args):
         validation = validation[:int(len(validation)/10)]
         print(f'Validation after: {validation.shape[0]}')
 
+    if(args.debug_run):
+        print("\nReducing data by factor of... a lot")
+        print(f'Train before: {train.shape[0]}')
+        train = train[:10]
+        print(f'Train after: {train.shape[0]}')
+        
+        print(f'Test before: {test.shape[0]}')
+        test = test[:10]
+        print(f'Test after: {test.shape[0]}')
+
+        print(f'Validation before: {validation.shape[0]}')
+        validation = validation[:10]
+        print(f'Validation after: {validation.shape[0]}')
+
     print(f'\n{datetime.datetime.now()}: Making training dataset')
     train_tweets_labels = train[['tweet', 'label']].explode('tweet')
     train_tweets_labels = train_tweets_labels[~train_tweets_labels['tweet'].isnull()]
 
-    if(args.subset_data):
+    if(args.debug_run):
         train_tweets_labels = train_tweets_labels[:104]
     
     print(f'Tokenizing data')
@@ -99,7 +113,7 @@ def main(args):
     val_tweets_labels = validation[['tweet','label']].explode('tweet')
     val_tweets_labels = val_tweets_labels[~val_tweets_labels['tweet'].isnull()]
 
-    if(args.subset_data):
+    if(args.debug_run):
         val_tweets_labels = val_tweets_labels[:10]
 
     print(f'Tokenizing data')
@@ -122,7 +136,7 @@ def main(args):
     test_tweets_labels = test[['tweet','label']].explode('tweet')
     test_tweets_labels = test_tweets_labels[~test_tweets_labels['tweet'].isnull()]
 
-    if(args.subset_data):
+    if(args.debug_run):
         test_tweets_labels = test_tweets_labels[:10]
 
     print(f'Tokenizing data')
@@ -224,6 +238,7 @@ if __name__=='__main__':
     parser.add_argument('--subset_data', type=bool, default=False, help="Whether to use a subset of the total data (smaller by factor of 10) for faster training.")
     parser.add_argument('--model', default='gpt-2', choices=['bert', 'gpt-2'])
     parser.add_argument('--batch_size', type=int, default=8, help='Default number of examples per minibatch')
+    parser.add_argument('--debug_run', type=bool, default=False, help='Whether to use a tiny fraction of the data just to test to see if everything runs correctly.')
 
     args = parser.parse_args()
 
