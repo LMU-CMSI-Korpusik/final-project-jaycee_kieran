@@ -20,7 +20,6 @@ import time
 
 GPT_HIDDEN_DIM = 768
 NUM_CLASSES = 2
-BATCH_SIZE = 8
 EPOCHS = 2
 SEED = 2345
 np.random.seed(SEED)
@@ -94,7 +93,7 @@ def main(args):
     train_dataset = TensorDataset(train_tweets, train_masks, train_labels)
 
     print(f"{datetime.datetime.now()}: Making training dataloader")
-    train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE)
+    train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size)
 
     print(f"\n{datetime.datetime.now()}: Making validation dataset")
     val_tweets_labels = validation[['tweet','label']].explode('tweet')
@@ -117,7 +116,7 @@ def main(args):
     val_dataset = TensorDataset(val_tweets, val_masks, val_labels)
 
     print(f"{datetime.datetime.now()}: Making validation dataloader")
-    val_dataloader = DataLoader(val_dataset, batch_size=BATCH_SIZE)
+    val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size)
 
     print(f"\n{datetime.datetime.now()}: Making test dataset")
     test_tweets_labels = test[['tweet','label']].explode('tweet')
@@ -140,7 +139,7 @@ def main(args):
     test_dataset = TensorDataset(test_tweets, test_masks)
 
     print(f"{datetime.datetime.now()}: Making test dataloader")
-    test_dataloader = DataLoader(test_dataset, batch_size=BATCH_SIZE)
+    test_dataloader = DataLoader(test_dataset, batch_size=args.batch_size)
 
     # Train the model for the specified number of epochs.
     for epoch in range(EPOCHS):
@@ -224,6 +223,7 @@ if __name__=='__main__':
     parser.add_argument('--learning_rate', type=float, default=2e-5, help='Learning rate for gradient descent.')
     parser.add_argument('--subset_data', type=bool, default=False, help="Whether to use a subset of the total data (smaller by factor of 10) for faster training.")
     parser.add_argument('--model', default='gpt-2', choices=['bert', 'gpt-2'])
+    parser.add_argument('--batch_size', type=int, default=8, help='Default number of examples per minibatch')
 
     args = parser.parse_args()
 
