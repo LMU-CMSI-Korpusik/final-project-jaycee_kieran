@@ -21,7 +21,7 @@ import time
 GPT_HIDDEN_DIM = 768
 NUM_CLASSES = 2
 EPOCHS = 2
-SEED = 2345
+SEED = 1234
 np.random.seed(SEED)
 torch.manual_seed(SEED)
 torch.cuda.manual_seed_all(SEED)
@@ -88,9 +88,11 @@ def main(args):
     print(f'\n{datetime.datetime.now()}: Making training dataset')
     train_tweets_labels = train[['tweet', 'label']].explode('tweet')
     train_tweets_labels = train_tweets_labels[~train_tweets_labels['tweet'].isnull()]
+    print(train_tweets_labels['label'].value_counts())
 
     if(args.debug_run):
         train_tweets_labels = train_tweets_labels[:104]
+    
     
     print(f'Tokenizing data')
     if args.model == "gpt-2":
@@ -112,10 +114,11 @@ def main(args):
     print(f"\n{datetime.datetime.now()}: Making validation dataset")
     val_tweets_labels = validation[['tweet','label']].explode('tweet')
     val_tweets_labels = val_tweets_labels[~val_tweets_labels['tweet'].isnull()]
+    print(val_tweets_labels['label'].value_counts())
 
     if(args.debug_run):
         val_tweets_labels = val_tweets_labels[:10]
-
+    
     print(f'Tokenizing data')
     if args.model == "gpt-2":
         val_tweets_masks = tokenizer(val_tweets_labels['tweet'].values.tolist(), padding=True, truncation=True, max_length=1024)
@@ -131,14 +134,15 @@ def main(args):
 
     print(f"{datetime.datetime.now()}: Making validation dataloader")
     val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size)
-
+    
     print(f"\n{datetime.datetime.now()}: Making test dataset")
     test_tweets_labels = test[['tweet','label']].explode('tweet')
     test_tweets_labels = test_tweets_labels[~test_tweets_labels['tweet'].isnull()]
+    print(test_tweets_labels['label'].value_counts())
 
     if(args.debug_run):
         test_tweets_labels = test_tweets_labels[:10]
-
+    
     print(f'Tokenizing data')
     if args.model == "gpt-2":
         test_tweets_masks = tokenizer(test_tweets_labels['tweet'].values.tolist(), padding=True, truncation=True, max_length=1024)
