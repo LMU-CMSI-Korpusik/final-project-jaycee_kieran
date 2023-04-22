@@ -29,7 +29,7 @@ torch.cuda.manual_seed_all(SEED)
 def main(args):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-    print(f"{datetime.datetime.now()}: Initializing GPT-2")
+    print(f"{datetime.datetime.now()}: Initializing {args.model}")
 
     if args.model == "gpt-2":
         tokenizer = GPT2Tokenizer.from_pretrained('gpt2', do_lower_case=True, pad_token='0', padding_side='right', truncation_side='right')
@@ -95,15 +95,13 @@ def main(args):
     
     
     print(f'Tokenizing data')
-    if args.model == "gpt-2":
-        train_tweets_masks = tokenizer(train_tweets_labels['tweet'].values.tolist(), padding=True, truncation=True, max_length=1024)
-        train_tweets = torch.LongTensor(train_tweets_masks['input_ids'])
-        train_masks = torch.FloatTensor(train_tweets_masks['attention_mask'])
-        train_labels = torch.LongTensor(train_tweets_labels['label'].values)
+    if args.model == "bert":
+        train_tweets_labels['tweet'] = ['[CLS]' + sentence + '[SEP]' for sentence in train_tweets_labels['tweet']]
 
-    else:
-        train_tweets = [tokenizer(tweet, truncation=True, max_length=2048, return_tensors='pt')['input_ids'].squeeze() for tweet in train_tweets_labels['tweet'].values]
-        train_labels = train_tweets_labels['label'].values
+    train_tweets_masks = tokenizer(train_tweets_labels['tweet'].values.tolist(), padding=True, truncation=True, max_length=1024)
+    train_tweets = torch.LongTensor(train_tweets_masks['input_ids'])
+    train_masks = torch.FloatTensor(train_tweets_masks['attention_mask'])
+    train_labels = torch.LongTensor(train_tweets_labels['label'].values)
 
     print(f"{datetime.datetime.now()}: Importing to TensorDataset")
     train_dataset = TensorDataset(train_tweets, train_masks, train_labels)
@@ -120,14 +118,13 @@ def main(args):
         val_tweets_labels = val_tweets_labels[:10]
     
     print(f'Tokenizing data')
-    if args.model == "gpt-2":
-        val_tweets_masks = tokenizer(val_tweets_labels['tweet'].values.tolist(), padding=True, truncation=True, max_length=1024)
-        val_tweets = torch.LongTensor(val_tweets_masks['input_ids'])
-        val_masks = torch.FloatTensor(val_tweets_masks['attention_mask'])
-        val_labels = torch.LongTensor(val_tweets_labels['label'].values)
-    else:
-        val_tweets = [tokenizer(tweet, truncation=True, max_length=1024, return_tensors='pt')['input_ids'].squeeze() for tweet in val_tweets_labels['tweet'].values]
-        val_labels = val_tweets_labels['label'].values
+    if args.model == "bert":
+        val_tweets_labels['tweet'] = ['[CLS]' + sentence + '[SEP]' for sentence in val_tweets_labels['tweet']]
+
+    val_tweets_masks = tokenizer(val_tweets_labels['tweet'].values.tolist(), padding=True, truncation=True, max_length=1024)
+    val_tweets = torch.LongTensor(val_tweets_masks['input_ids'])
+    val_masks = torch.FloatTensor(val_tweets_masks['attention_mask'])
+    val_labels = torch.LongTensor(val_tweets_labels['label'].values)
 
     print(f"{datetime.datetime.now()}: Importing to TensorDataset")
     val_dataset = TensorDataset(val_tweets, val_masks, val_labels)
@@ -144,14 +141,13 @@ def main(args):
         test_tweets_labels = test_tweets_labels[:10]
     
     print(f'Tokenizing data')
-    if args.model == "gpt-2":
-        test_tweets_masks = tokenizer(test_tweets_labels['tweet'].values.tolist(), padding=True, truncation=True, max_length=1024)
-        test_tweets = torch.LongTensor(test_tweets_masks['input_ids'])
-        test_masks = torch.FloatTensor(test_tweets_masks['attention_mask'])
-        test_labels = torch.LongTensor(test_tweets_labels['label'].values)
-    else:
-        test_tweets = [tokenizer(tweet, truncation=True, max_length=1024, return_tensors='pt')['input_ids'].squeeze() for tweet in test_tweets_labels['tweet'].values]
-        test_labels = test_tweets_labels['label'].values
+    if args.model == "bert":
+        test_tweets_labels['tweet'] = ['[CLS]' + sentence + '[SEP]' for sentence in test_tweets_labels['tweet']]
+    
+    test_tweets_masks = tokenizer(test_tweets_labels['tweet'].values.tolist(), padding=True, truncation=True, max_length=1024)
+    test_tweets = torch.LongTensor(test_tweets_masks['input_ids'])
+    test_masks = torch.FloatTensor(test_tweets_masks['attention_mask'])
+    test_labels = torch.LongTensor(test_tweets_labels['label'].values)
 
     print(f"{datetime.datetime.now()}: Importing to TensorDataset")
     test_dataset = TensorDataset(test_tweets, test_masks)
@@ -175,7 +171,7 @@ def main(args):
             if args.model == "gpt-2":
                 loss = model(input_ids=tweets.to(device), token_type_ids=None, attention_mask=masks.to(device), mc_labels=labels.to(device)).mc_loss
             else:
-                loss = model(input_ids=tweets.to(device), token_type_ids=None, attention_mask=masks.to(device), labels=labels.to(device)).mc_loss
+                loss = model(input_ids=tweets.to(device), token_type_ids=None, attention_mask=masks.to(device), labels=labels.to(device)).loss
 
             avg_training_loss += loss.item()
             batches += 1
@@ -230,7 +226,6 @@ def main(args):
         report = classification_report(predictions, test_labels.numpy().flatten(), target_names=['human', 'bot'])
 
         print(f'Summary statistics for {args.model} bot detection network.')
-        print(report)
 
         with open(f'{args.model}_report.txt', 'wt') as model_report:
             model_report.write(report)
