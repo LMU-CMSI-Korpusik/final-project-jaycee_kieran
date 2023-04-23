@@ -35,7 +35,7 @@ def main(args):
         tokenizer = GPT2Tokenizer.from_pretrained('gpt2', do_lower_case=True, pad_token='0', padding_side='right', truncation_side='right')
         model = GPT2DoubleHeadsModel.from_pretrained('gpt2', num_labels=NUM_CLASSES)
     else:
-        tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True)
+        tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True, pad_token='0', padding_side='right', truncation_side='right')
         model = BertForSequenceClassification.from_pretrained("bert-base-uncased", num_labels=NUM_CLASSES)
 
     model.to(device)
@@ -96,7 +96,7 @@ def main(args):
     
     print(f'Tokenizing data')
     if args.model == "bert":
-        train_tweets_labels['tweet'] = ['[CLS]' + sentence + '[SEP]' for sentence in train_tweets_labels['tweet']]
+        train_tweets_labels['tweet'] = ['[CLS] ' + sentence + ' [SEP]' for sentence in train_tweets_labels['tweet']]
 
     train_tweets_masks = tokenizer(train_tweets_labels['tweet'].values.tolist(), padding=True, truncation=True, max_length=1024)
     train_tweets = torch.LongTensor(train_tweets_masks['input_ids'])
@@ -119,7 +119,7 @@ def main(args):
     
     print(f'Tokenizing data')
     if args.model == "bert":
-        val_tweets_labels['tweet'] = ['[CLS]' + sentence + '[SEP]' for sentence in val_tweets_labels['tweet']]
+        val_tweets_labels['tweet'] = ['[CLS] ' + sentence + ' [SEP]' for sentence in val_tweets_labels['tweet']]
 
     val_tweets_masks = tokenizer(val_tweets_labels['tweet'].values.tolist(), padding=True, truncation=True, max_length=1024)
     val_tweets = torch.LongTensor(val_tweets_masks['input_ids'])
@@ -142,7 +142,7 @@ def main(args):
     
     print(f'Tokenizing data')
     if args.model == "bert":
-        test_tweets_labels['tweet'] = ['[CLS]' + sentence + '[SEP]' for sentence in test_tweets_labels['tweet']]
+        test_tweets_labels['tweet'] = ['[CLS] ' + sentence + ' [SEP]' for sentence in test_tweets_labels['tweet']]
     
     test_tweets_masks = tokenizer(test_tweets_labels['tweet'].values.tolist(), padding=True, truncation=True, max_length=1024)
     test_tweets = torch.LongTensor(test_tweets_masks['input_ids'])
@@ -226,6 +226,7 @@ def main(args):
         report = classification_report(predictions, test_labels.numpy().flatten(), target_names=['human', 'bot'])
 
         print(f'Summary statistics for {args.model} bot detection network.')
+        print(report)
 
         with open(f'{args.model}_report.txt', 'wt') as model_report:
             model_report.write(report)
