@@ -10,3 +10,5 @@ To train the models, use `python3 train.py`. GPT-2 or BERT can be selected with 
 After the training loop is complete, the models will be saved to their individual folders, and a classification report will print to the console, and also be saved to the same directory. 
 
 NOTE: as of the time of writing this README (5/1/2023), there exists a bug in the huggingface transformers library that breaks this code. To fix it, go to the GPT2DoubleHeadsModel in the `modeling_gpt2.py` in your installed transformers library and REMOVE the line which sets `num_labels = 1`.
+
+Acknowledgements: [PyTorch](https://pytorch.org/), [huggingface transformers](https://huggingface.co/docs/transformers/index), [Understanding Transformers for Bot Detection in Twitter](https://github.com/botonobot/Understanding-Transformers-for-Bot-Detection-Twitter), [tqdm](https://github.com/tqdm/tqdm), [pandas](https://pandas.pydata.org/), [scikit-learn](https://scikit-learn.org/), and Dr. Korpusik for her help
