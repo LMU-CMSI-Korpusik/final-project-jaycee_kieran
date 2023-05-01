@@ -1,6 +1,8 @@
 """
 Authors: Kieran Ahn, Jaycee Nakagawa
 
+This file instantiates and trains one of two classifiers powered by LLMs on a bot detection database to detect bots on twitter.
+
 Follows the procedure presented in https://github.com/botonobot/Understanding-Transformers-for-Bot-Detection-Twitter/blob/master/bot_detection/bot_detection-BERT_GPT2-transformers.ipynb
 """
 
@@ -16,7 +18,6 @@ from tqdm import tqdm
 from torch.utils.data import DataLoader
 from torch.utils.data import TensorDataset
 from sklearn.metrics import classification_report
-import time
 
 GPT_HIDDEN_DIM = 768
 NUM_CLASSES = 2
@@ -26,6 +27,9 @@ np.random.seed(SEED)
 torch.manual_seed(SEED)
 torch.cuda.manual_seed_all(SEED)
 
+"""
+Loads the data, instantiates the models, and trains the models on the batched data
+"""
 def main(args):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -35,7 +39,7 @@ def main(args):
         tokenizer = GPT2Tokenizer.from_pretrained('gpt2', do_lower_case=True, pad_token='0', padding_side='right', truncation_side='right')
         model = GPT2DoubleHeadsModel.from_pretrained('gpt2', num_labels=NUM_CLASSES)
     else:
-        tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True, pad_token='0', padding_side='right', truncation_side='right')
+        tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True, pad_token='[PAD]', padding_side='right', truncation_side='right')
         model = BertForSequenceClassification.from_pretrained("bert-base-uncased", num_labels=NUM_CLASSES)
 
     model.to(device)
